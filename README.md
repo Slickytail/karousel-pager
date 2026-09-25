@@ -42,10 +42,10 @@ sudo cmake --install build
 ```
 
 To try it without installing, point Plasma at the build tree instead
-(the plugin ends up under `build/lib/plasma/applets`):
+(the plugin ends up under `build/bin/plasma/applets`):
 
 ```sh
-QT_PLUGIN_PATH="$PWD/build/lib" plasmashell --replace
+QT_PLUGIN_PATH="$PWD/build/bin" plasmashell --replace
 ```
 
 Then add the "Karousel Pager" widget to a panel from Plasma's widget
@@ -58,7 +58,12 @@ The widget's settings page has the usual pager options plus:
 - **Reserved space per side** – how much empty space to reserve on each side
   of a desktop for off-screen windows, measured in desktop widths. The
   default is `1.5`, which makes the widget four desktop widths wide in
-  total. Windows that extend beyond the reserved area are faded out.
+  total.
+- **Start fading after** – fraction of the reserved width next to the
+  viewport that stays fully opaque before the outlines start to fade.
+- **Fade curve** – exponent of the fade. `1` is linear, larger values make
+  the outlines fade away more aggressively. Windows that extend beyond the
+  reserved area are clipped/faded out entirely.
 
 ## How it works
 

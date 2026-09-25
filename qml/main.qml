@@ -30,6 +30,8 @@ PlasmoidItem {
 
     readonly property real overflowMargin: Math.max(0, Plasmoid.configuration.overflowMargin ?? 1.5)
     readonly property real cellWidthFactor: 1 + 2 * overflowMargin
+    readonly property real fadeStart: Math.max(0, Math.min(1, Plasmoid.configuration.fadeStart ?? 0.25))
+    readonly property real fadeExponent: Math.max(0.05, Plasmoid.configuration.fadeExponent ?? 1.0)
 
     readonly property real aspectRatio: (((pagerModel.pagerItemSize.width * cellWidthFactor * pagerItemGrid.effectiveColumns)
         + ((pagerItemGrid.effectiveColumns * pagerItemGrid.spacing) - pagerItemGrid.spacing))
@@ -382,6 +384,44 @@ PlasmoidItem {
                 readonly property real viewportWidth: width / root.cellWidthFactor
                 readonly property real marginWidth: (width - viewportWidth) / 2
 
+                // Vertical inset of the tiling area (panel plus Karousel margin),
+                // in pager pixels. The viewport frame is extended below the
+                // windows by the same amount so that it stays symmetric.
+                readonly property real tilingTop: {
+                    let minTop = Infinity;
+                    const count = windowRectRepeater ? windowRectRepeater.count : 0;
+                    for (let i = 0; i < count; ++i) {
+                        const w = windowRectRepeater.itemAt(i);
+                        if (w) {
+                            minTop = Math.min(minTop, w.windowTop);
+                        }
+                    }
+                    return isFinite(minTop) ? minTop : 0;
+                }
+
+                readonly property real tilingBottom: {
+                    let maxBottom = -Infinity;
+                    const count = windowRectRepeater ? windowRectRepeater.count : 0;
+                    for (let i = 0; i < count; ++i) {
+                        const w = windowRectRepeater.itemAt(i);
+                        if (w) {
+                            maxBottom = Math.max(maxBottom, w.windowBottom);
+                        }
+                    }
+                    return isFinite(maxBottom) ? maxBottom : height;
+                }
+
+                // Opacity of an off-viewport outline at distance d from the
+                // viewport (d == 0 at the viewport, d == 1 at the outer edge of
+                // the reserved area).
+                function fadeAlpha(d) {
+                    if (d <= root.fadeStart) {
+                        return 1.0;
+                    }
+                    const t = (d - root.fadeStart) / Math.max(0.0001, 1.0 - root.fadeStart);
+                    return Math.pow(Math.max(0.0, 1.0 - t), root.fadeExponent);
+                }
+
                 // These states match the set of SVG prefixes for the "widgets/pager" below.
                 state: {
                     if (desktopMouseArea.enabled && (desktopMouseArea.containsMouse || desktopMouseArea.activeFocus)) {
@@ -397,7 +437,9 @@ PlasmoidItem {
                     x: desktop.marginWidth
                     y: 0
                     width: desktop.viewportWidth
-                    height: desktop.height
+                    // Extend below the windows by the same amount the tiling area
+                    // is inset at the top, so the frame looks symmetric.
+                    height: desktop.tilingBottom + desktop.tilingTop
                     imagePath: "widgets/pager"
                     opacity: desktop.state === usedPrefix ? 1 : 0
                 }
@@ -480,28 +522,38 @@ PlasmoidItem {
                     readonly property bool isActive: model.IsActive
                     readonly property int stackingOrder: model.StackingOrder
 
-                    readonly property real windowX: Math.round(geometry.x * pagerItemGrid.widthScaleFactor)
-                    readonly property real windowY: Math.round(geometry.y * pagerItemGrid.heightScaleFactor)
+                    readonly property real windowLeft: Math.round(geometry.x * pagerItemGrid.widthScaleFactor)
+                    readonly property real windowTop: Math.round(geometry.y * pagerItemGrid.heightScaleFactor)
+                    readonly property real windowRight: Math.round((geometry.x + geometry.width) * pagerItemGrid.widthScaleFactor)
+                    readonly property real windowBottom: Math.round((geometry.y + geometry.height) * pagerItemGrid.heightScaleFactor)
+                    // Derive the size from the rounded edges so that adjacent
+                    // windows share an edge exactly and stacked windows do not
+                    // accumulate rounding error.
+                    readonly property real windowWidth: windowRight - windowLeft
+                    readonly property real windowHeight: windowBottom - windowTop
                     readonly property color solidBorderColor: isActive ? root.windowActiveBorderColor : root.windowInactiveBorderColor
+                    // On the current desktop the whole outline is drawn in the accent
+                    // color; off-viewport parts are a more transparent version of it.
+                    readonly property color ghostBorderColor: desktop.isCurrent
+                        ? root.colorWithAlpha(Kirigami.Theme.focusColor, isActive ? 0.6 : 0.45)
+                        : Qt.rgba(solidBorderColor.r, solidBorderColor.g, solidBorderColor.b, solidBorderColor.a * (isActive ? 0.5 : 0.4))
 
                     onMinimizedChanged: desktop.updateSubTextIfNeeded()
                     onDisplayChanged: desktop.updateSubTextIfNeeded()
 
                     z: 1 + stackingOrder
                     // clipRect is inset by one pixel, so move the solid windows back.
-                    x: ghost ? desktop.marginWidth + windowX : windowX - 1
-                    y: ghost ? windowY : windowY - 1
-                    width: Math.round(geometry.width * pagerItemGrid.widthScaleFactor)
-                    height: Math.round(geometry.height * pagerItemGrid.heightScaleFactor)
+                    x: ghost ? desktop.marginWidth + windowLeft : windowLeft - 1
+                    y: ghost ? windowTop : windowTop - 1
+                    width: windowWidth
+                    height: windowHeight
                     visible: Plasmoid.configuration.showWindowOutlines && !minimized
                     color: ghost ? "transparent" : (desktop.isCurrent
                         ? (isActive ? root.windowActiveOnActiveDesktopColor : root.windowInactiveOnActiveDesktopColor)
                         : (isActive ? root.windowActiveColor : root.windowInactiveColor))
 
                     border.width: 1
-                    border.color: ghost
-                        ? Qt.rgba(solidBorderColor.r, solidBorderColor.g, solidBorderColor.b, solidBorderColor.a * (isActive ? 0.5 : 0.4))
-                        : solidBorderColor
+                    border.color: ghost ? ghostBorderColor : solidBorderColor
 
                     Component.onCompleted: {
                         if (!ghost && Plasmoid.configuration.showWindowIcons) {
@@ -542,30 +594,61 @@ PlasmoidItem {
                     visible: false
                     layer.enabled: true
 
-                    Rectangle {
-                        x: 0
-                        y: 0
-                        width: desktop.marginWidth
-                        height: desktop.height
+                    Canvas {
+                        id: maskCanvas
 
-                        gradient: Gradient {
-                            orientation: Gradient.Horizontal
-                            GradientStop { position: 0.0; color: "transparent" }
-                            GradientStop { position: 0.35; color: "white" }
-                            GradientStop { position: 1.0; color: "white" }
+                        anchors.fill: parent
+                        onWidthChanged: requestPaint()
+                        onHeightChanged: requestPaint()
+
+                        onPaint: {
+                            const ctx = getContext("2d");
+                            ctx.reset();
+
+                            const m = desktop.marginWidth;
+                            const v = desktop.viewportWidth;
+                            const w = width;
+                            const h = height;
+                            if (m <= 0 || h <= 0) {
+                                return;
+                            }
+
+                            const steps = 24;
+
+                            // Left margin: distance from the viewport grows from
+                            // t == 1 (viewport edge) to t == 0 (outer edge).
+                            const left = ctx.createLinearGradient(0, 0, m, 0);
+                            for (let i = 0; i <= steps; ++i) {
+                                const t = i / steps;
+                                left.addColorStop(t, "rgba(255,255,255," + desktop.fadeAlpha(1 - t) + ")");
+                            }
+                            ctx.fillStyle = left;
+                            ctx.fillRect(0, 0, m, h);
+
+                            // Right margin: distance from the viewport grows from
+                            // t == 0 (viewport edge) to t == 1 (outer edge).
+                            const rightX = m + v;
+                            const right = ctx.createLinearGradient(rightX, 0, w, 0);
+                            for (let i = 0; i <= steps; ++i) {
+                                const t = i / steps;
+                                right.addColorStop(t, "rgba(255,255,255," + desktop.fadeAlpha(t) + ")");
+                            }
+                            ctx.fillStyle = right;
+                            ctx.fillRect(rightX, 0, w - rightX, h);
                         }
                     }
-                    Rectangle {
-                        x: desktop.marginWidth + desktop.viewportWidth
-                        y: 0
-                        width: desktop.marginWidth
-                        height: desktop.height
 
-                        gradient: Gradient {
-                            orientation: Gradient.Horizontal
-                            GradientStop { position: 0.0; color: "white" }
-                            GradientStop { position: 0.65; color: "white" }
-                            GradientStop { position: 1.0; color: "transparent" }
+                    Connections {
+                        target: root
+
+                        function onFadeStartChanged() {
+                            maskCanvas.requestPaint();
+                        }
+                        function onFadeExponentChanged() {
+                            maskCanvas.requestPaint();
+                        }
+                        function onOverflowMarginChanged() {
+                            maskCanvas.requestPaint();
                         }
                     }
                 }
@@ -577,7 +660,9 @@ PlasmoidItem {
                     y: 1
                     z: 1 // Below FrameSvg
                     width: desktop.viewportWidth - 2
-                    height: desktop.height - 2
+                    // Leave the bottom edge open so a window's bottom border is
+                    // not clipped when it reaches the bottom of the cell.
+                    height: desktop.height - 1
                     clip: true
 
                     Repeater {

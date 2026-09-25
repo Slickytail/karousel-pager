@@ -29,6 +29,18 @@
       <min>0.0</min>
       <max>4.0</max>
     </entry>
+    <entry name="fadeStart" type="Double">
+      <label>Fraction of the reserved area next to the viewport that stays fully opaque before off-screen window outlines start to fade.</label>
+      <default>0.25</default>
+      <min>0.0</min>
+      <max>1.0</max>
+    </entry>
+    <entry name="fadeExponent" type="Double">
+      <label>Shape of the fade curve for off-screen window outlines. 1 is linear, larger values fade more aggressively.</label>
+      <default>1.0</default>
+      <min>0.25</min>
+      <max>4.0</max>
+    </entry>
     <entry name="showOnlyCurrentScreen" type="Bool">
       <label>Whether to limit the Pager to the set of windows and the geometry of the screen the widget resides on.</label>
       <default>false</default>

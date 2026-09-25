@@ -9,7 +9,6 @@
         "Category": "Windows and Tasks",
         "Description": "Switch between virtual desktops, showing windows scrolled out of view by the Karousel tiling script",
         "Icon": "user-desktop",
-        "Id": "org.slickytail.karouselpager",
         "License": "GPL-2.0-or-later",
         "Name": "Karousel Pager",
         "Version": "0.1.0",

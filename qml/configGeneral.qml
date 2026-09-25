@@ -7,6 +7,7 @@
 
 import QtQuick
 import QtQuick.Controls as QQC2
+import QtQuick.Layouts
 
 import org.kde.kirigami as Kirigami
 import org.kde.plasma.plasmoid
@@ -20,6 +21,8 @@ KCM.SimpleKCM {
     property alias cfg_showWindowOutlines: showWindowOutlines.checked
     property alias cfg_showWindowIcons: showWindowIcons.checked
     property alias cfg_overflowMargin: overflowMargin.value
+    property alias cfg_fadeStart: fadeStart.value
+    property alias cfg_fadeExponent: fadeExponent.value
     property int cfg_currentDesktopSelected
     property alias cfg_pagerLayout: pagerLayout.currentIndex
     property alias cfg_showOnlyCurrentScreen: showOnlyCurrentScreen.checked
@@ -48,20 +51,70 @@ KCM.SimpleKCM {
             enabled: showWindowOutlines.checked
         }
 
-        QQC2.SpinBox {
-            id: overflowMargin
+        RowLayout {
+            id: overflowMarginRow
 
-            Kirigami.FormData.label: i18nc("@label:spinbox", "Reserved space per side:")
-
-            from: 0.0
-            to: 4.0
-            stepSize: 0.5
-            decimals: 1
-            editable: true
+            Kirigami.FormData.label: i18nc("@label:slider", "Reserved space per side:")
             enabled: showWindowOutlines.checked
 
-            textFromValue: (value, locale) => i18ncp("@item:value", "%1 desktop width", "%1 desktop widths", value)
-            valueFromText: (text, locale) => Number.parseFloat(text)
+            QQC2.Slider {
+                id: overflowMargin
+                from: 0.0
+                to: 4.0
+                stepSize: 0.1
+                Layout.fillWidth: true
+                Layout.minimumWidth: Kirigami.Units.gridUnit * 10
+            }
+
+            QQC2.Label {
+                text: i18n("%1 desktop widths", overflowMargin.value.toFixed(2))
+                horizontalAlignment: Text.AlignRight
+                Layout.minimumWidth: Kirigami.Units.gridUnit * 8
+            }
+        }
+
+        RowLayout {
+            id: fadeStartRow
+
+            Kirigami.FormData.label: i18nc("@label:slider", "Start fading after:")
+            enabled: showWindowOutlines.checked
+
+            QQC2.Slider {
+                id: fadeStart
+                from: 0.0
+                to: 1.0
+                stepSize: 0.05
+                Layout.fillWidth: true
+                Layout.minimumWidth: Kirigami.Units.gridUnit * 10
+            }
+
+            QQC2.Label {
+                text: i18n("%1% of the reserved width", Math.round(fadeStart.value * 100))
+                horizontalAlignment: Text.AlignRight
+                Layout.minimumWidth: Kirigami.Units.gridUnit * 8
+            }
+        }
+
+        RowLayout {
+            id: fadeExponentRow
+
+            Kirigami.FormData.label: i18nc("@label:slider", "Fade curve:")
+            enabled: showWindowOutlines.checked
+
+            QQC2.Slider {
+                id: fadeExponent
+                from: 0.25
+                to: 4.0
+                stepSize: 0.25
+                Layout.fillWidth: true
+                Layout.minimumWidth: Kirigami.Units.gridUnit * 10
+            }
+
+            QQC2.Label {
+                text: fadeExponent.value.toFixed(2)
+                horizontalAlignment: Text.AlignRight
+                Layout.minimumWidth: Kirigami.Units.gridUnit * 8
+            }
         }
 
         QQC2.CheckBox {
