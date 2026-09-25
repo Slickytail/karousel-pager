@@ -28,6 +28,20 @@ KCM.SimpleKCM {
     property alias cfg_showOnlyCurrentScreen: showOnlyCurrentScreen.checked
     property alias cfg_wrapPage: wrapPage.checked
 
+    // Defaults pushed in by the shell. Declaring these avoids
+    // "Setting initial properties failed: ... does not have a property
+    // called cfg_<key>Default" warnings; they are not otherwise used here.
+    property int cfg_displayedTextDefault
+    property bool cfg_showWindowOutlinesDefault
+    property bool cfg_showWindowIconsDefault
+    property double cfg_overflowMarginDefault
+    property double cfg_fadeStartDefault
+    property double cfg_fadeExponentDefault
+    property bool cfg_showOnlyCurrentScreenDefault
+    property bool cfg_wrapPageDefault
+    property int cfg_currentDesktopSelectedDefault
+    property int cfg_pagerLayoutDefault
+
     Kirigami.FormLayout {
         QQC2.ButtonGroup {
             id: displayedTextGroup
